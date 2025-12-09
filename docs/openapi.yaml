@@ -1,0 +1,176 @@
+openapi: 3.0.3
+info:
+  title: Wallet Transactions API
+  version: 1.0.0
+  description: |
+    Tiny API for recording wallet transactions with idempotency and validation.
+servers:
+  - url: http://localhost:8000
+paths:
+  /api/transactions:
+    post:
+      summary: Create a transaction (credit or debit)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TransactionRequest'
+            examples:
+              debit:
+                summary: debit example
+                value:
+                  wallet_id: 1
+                  type: debit
+                  amount: 2500.50
+                  reference: TX-2025-0001
+                  idempotency_key: bb7c5b1a-0000-0000-0000-000000000001
+      responses:
+        '201':
+          description: Transaction created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TransactionCreated'
+        '422':
+          description: Validation or business rule failure (e.g., overdraft)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    get:
+      summary: List transactions with filters
+      parameters:
+        - in: query
+          name: page
+          schema:
+            type: integer
+          description: Page number
+        - in: query
+          name: per_page
+          schema:
+            type: integer
+          description: Items per page (default 10)
+        - in: query
+          name: q
+          schema:
+            type: string
+          description: Search in `reference`
+        - in: query
+          name: type
+          schema:
+            type: string
+            enum: [credit, debit]
+        - in: query
+          name: from
+          schema:
+            type: string
+            format: date
+        - in: query
+          name: to
+          schema:
+            type: string
+            format: date
+      responses:
+        '200':
+          description: Paginated list and summary
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TransactionsList'
+components:
+  schemas:
+    TransactionRequest:
+      type: object
+      required:
+        - wallet_id
+        - type
+        - amount
+        - reference
+        - idempotency_key
+      properties:
+        wallet_id:
+          type: integer
+          example: 1
+        type:
+          type: string
+          enum: [credit, debit]
+          example: debit
+        amount:
+          type: number
+          format: decimal
+          example: 2500.50
+        reference:
+          type: string
+          example: "TX-2025-0001"
+        idempotency_key:
+          type: string
+          example: "bb7c5b1a-0000-0000-0000-000000000001"
+    Transaction:
+      type: object
+      properties:
+        id:
+          type: integer
+        wallet_id:
+          type: integer
+        type:
+          type: string
+        amount:
+          type: number
+          format: decimal
+        reference:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+    Wallet:
+      type: object
+      properties:
+        id:
+          type: integer
+        user_id:
+          type: integer
+        currency:
+          type: string
+        balance:
+          type: number
+          format: decimal
+    TransactionCreated:
+      type: object
+      properties:
+        transaction:
+          $ref: '#/components/schemas/Transaction'
+        wallet_balance:
+          type: number
+          format: decimal
+    TransactionsList:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/Transaction'
+        meta:
+          type: object
+          properties:
+            total:
+              type: integer
+            page:
+              type: integer
+            per_page:
+              type: integer
+        summary:
+          type: object
+          properties:
+            total_in:
+              type: number
+            total_out:
+              type: number
+    ErrorResponse:
+      type: object
+      properties:
+        message:
+          type: string
+        errors:
+          type: object
+          additionalProperties: true
